@@ -1,0 +1,9 @@
+khwelero backend models
+	- Users (Role)
+		- Teacher
+		- Student
+		- Admin		
+	- Subjects
+	- Assingments
+	- Exams
+	- Class
