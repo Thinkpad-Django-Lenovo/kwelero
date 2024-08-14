@@ -71,7 +71,8 @@ class LoginSerializer(serializers.Serializer):  # Using Serializer instead of Mo
         user = authenticate(request, username=username, password=password)        
         if not user:
             raise AuthenticationFailed("Invalid credentials, try again")
-        
+        if user.user_role in ['A', 'T'] and not user.is_email_verified:
+            raise AuthenticationFailed('You need to verify you email to get access')
         return {
             'user': user,
         }

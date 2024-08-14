@@ -20,7 +20,9 @@ from django.core.mail import EmailMessage, get_connection, send_mail
 from django.conf import settings
 from .utils import send_generated_otp_to_email
 from django.template.loader import render_to_string
+import logging
 
+logger = logging.getLogger(__name__)
 #Class based views
 
 class Registration(viewsets.ViewSet):
@@ -38,6 +40,7 @@ class Registration(viewsets.ViewSet):
         recipient_email = user_data.get('email')
         
         if user_role in ['A', 'T']:
+            self._send_welcome_email(request, user_data, recipient_email)        
             send_generated_otp_to_email(email=recipient_email, request=request)
             return Response({'message': 'Email has been sent successfully'})
         
@@ -74,8 +77,8 @@ class Registration(viewsets.ViewSet):
                 email.content_subtype = 'html'
                 email.send()
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+            logger.error(f"Failed to send welcome email to {recipient_email}: {e}")
+
 class ChangeDefaultPasswordView(APIView):
     serializer_class=serializers.ChangeDefaultPasswordSerializer
     permission_classes = [IsAuthenticated]
@@ -128,20 +131,52 @@ class ChangeDefaultPasswordView(APIView):
         return Response({'success':True, 'message':"password change was a succesful"}, status=status.HTTP_200_OK)
       
 class VerifyUserEmail(GenericAPIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         try:
             passcode = request.data.get('otp')
-            user_pass_obj=models.OneTimePassword.objects.get(otp=passcode)
-            user=user_pass_obj.user
-            if not user.is_email_verified:
-                user.is_email_verified=True
-                user.save()
+            user_pass_obj = models.OneTimePassword.objects.get(otp=passcode)
+            user = user_pass_obj.user
+
+            if user.is_email_verified:
                 return Response({
-                    'message':'account email verified successfully'
+                    'message': 'This email is already verified. No further action is required.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if user_pass_obj.is_expired():
+                user_pass_obj.regenerate_otp()
+                self.send_otp_email(user_pass_obj)
+                return Response({
+                    'message': 'The OTP has expired. A new OTP has been sent to your email.'
                 }, status=status.HTTP_200_OK)
-            return Response({'message':'passcode is invalid user is already verified'}, status=status.HTTP_204_NO_CONTENT)
-        except models.OneTimePassword.DoesNotExist as identifier:
-            return Response({'message':'passcode not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            user.is_email_verified = True
+            user.save()
+            return Response({'message': 'Account email verified successfully'}, status=status.HTTP_200_OK)
+
+        except models.OneTimePassword.DoesNotExist:
+            return Response({'message': 'Invalid passcode'}, status=status.HTTP_400_BAD_REQUEST)
+
+    def send_otp_email(self, otp_obj):
+        recipient_email = otp_obj.user.email
+        try:
+            with get_connection(
+                host=settings.EMAIL_HOST,
+                port=settings.EMAIL_PORT,
+                username=settings.EMAIL_HOST_USER,
+                password=settings.EMAIL_HOST_PASSWORD,
+                use_tls=settings.EMAIL_USE_TLS
+            ) as connection:
+                email = EmailMessage(
+                    subject='Your New OTP Code',
+                    body=f'Your new OTP code is {otp_obj.otp}. It is valid for 24 hours.',
+                    from_email=settings.EMAIL_HOST_USER,
+                    to=[recipient_email],
+                    connection=connection
+                )
+                email.content_subtype = 'html'
+                email.send()
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
       
 class Login(viewsets.ViewSet):
     permission_classes = [AllowAny]

@@ -1,7 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from django.utils import timezone
+from datetime import timedelta
+import random
 
 class CustomUser(AbstractUser):
     GENDER_CHOICES = [
@@ -47,13 +49,28 @@ class CustomUser(AbstractUser):
         return f"{self.first_name.title()} {self.last_name.title()}"
     
 class OneTimePassword(models.Model):
-    user=models.OneToOneField(CustomUser, on_delete=models.CASCADE)
-    otp=models.CharField(max_length=6)
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
+    def is_expired(self):
+        # OTP is valid for 1 day
+        if timezone.now() > self.created_at + timedelta(days=1):
+            self.otp = None
+            self.save(update_fields=['otp'])
+            return True
+        return False
+
+    def regenerate_otp(self):
+        # Generate a new OTP if the current one is expired
+        if self.is_expired():
+            self.otp = ''.join(random.choices('0123456789', k=6))
+            self.created_at = timezone.now()
+            self.save(update_fields=['otp', 'created_at'])
 
     def __str__(self):
-        return f"{self.user.first_name} - otp code"  
-      
+        return f"OTP for {self.user.username}"
+          
 class SchoolClass(models.Model):
     name = models.CharField(max_length=50)
     def __str__(self):

@@ -147,6 +147,7 @@ EMAIL_HOST_USER = 'yusufayami14@gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
 EMAIL_HOST_PASSWORD = 'khqrlfazdlimnhqd'
+DEFAULT_FROM_EMAIL = 'khwelero@E-Learning-Center.technixlabs.org'
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWS_CREDENTIALS = True
