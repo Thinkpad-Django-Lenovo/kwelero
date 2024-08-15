@@ -16,6 +16,7 @@ def send_generated_otp_to_email(email, request):
     otp_obj=OneTimePassword()
     otp_obj.user = user
     otp_obj.otp = otp
+    otp_obj.is_used = True
     otp_obj.save()
     recipient_email = email
     try:

@@ -144,11 +144,12 @@ class VerifyUserEmail(GenericAPIView):
                     'message': 'This email is already verified. No further action is required.'
                 }, status=status.HTTP_400_BAD_REQUEST)
             if user_pass_obj.is_expired():
-                user_pass_obj.regenerate_otp()
-                self.send_otp_email(user_pass_obj)
-                return Response({
-                    'message': 'The OTP has expired. A new OTP has been sent to your email.'
-                }, status=status.HTTP_200_OK)
+                if not user_pass_obj.is_used:
+                    user_pass_obj.regenerate_otp()
+                    self.send_otp_email(user_pass_obj)
+                    return Response({
+                        'message': 'The OTP has expired. A new OTP has been sent to your email.'
+                    }, status=status.HTTP_200_OK)
             user.is_email_verified = True
             user.save()
             return Response({'message': 'Account email verified successfully'}, status=status.HTTP_200_OK)
@@ -159,6 +160,10 @@ class VerifyUserEmail(GenericAPIView):
     def send_otp_email(self, otp_obj):
         recipient_email = otp_obj.user.email
         try:
+            message = render_to_string('messages/resend_otp_code', context={
+                'username': otp_obj.user.username,
+                'otp_code': otp_obj.otp
+            })
             with get_connection(
                 host=settings.EMAIL_HOST,
                 port=settings.EMAIL_PORT,
@@ -168,7 +173,7 @@ class VerifyUserEmail(GenericAPIView):
             ) as connection:
                 email = EmailMessage(
                     subject='Your New OTP Code',
-                    body=f'Your new OTP code is {otp_obj.otp}. It is valid for 24 hours.',
+                    body= message,
                     from_email=settings.EMAIL_HOST_USER,
                     to=[recipient_email],
                     connection=connection
@@ -243,6 +248,30 @@ class SetNewPasswordView(GenericAPIView):
     def patch(self, request):
         serializer=self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
+        recipient_email = models.CustomUser.objects.get(pk=request.user.id).email
+        try:
+            message = render_to_string('messages/password_change_success.html', context={
+                "username": models.CustomUser.objects.get(pk=request.user.id).username,
+                "new_password": serializer.validated_data['password']
+            })
+            with get_connection(
+                host=settings.EMAIL_HOST,
+                port=settings.EMAIL_PORT,
+                username=settings.EMAIL_HOST_USER,
+                password=settings.EMAIL_HOST_PASSWORD,
+                use_tls=settings.EMAIL_USE_TLS
+            ) as connection:
+                email = EmailMessage(
+                    subject='Default Password Change',
+                    body= message,
+                    from_email=settings.EMAIL_HOST_USER,
+                    to=[recipient_email],
+                    connection=connection
+                )
+                email.content_subtype = 'html'
+                email.send()
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response({'success':True, 'message':"password reset is succesful"}, status=status.HTTP_200_OK)
     
 class Users(viewsets.ModelViewSet):

@@ -5,21 +5,19 @@
 
 {% block content%}
 
-<div class="site-wrap d-md-flex align-items-stretch">
-    <div class="bg-img d-none d-md-block col-md-6"></div>
-    <div class="form-wrap col-md-6 d-flex justify-content-center align-items-center p-5">
-        <div class="form-inner">
-            <h1 class="title mb-4">Account Created</h1>
-            <h2 class="mb-3">Hello <span class="text-capitalize">{{ first_name }} {{ last_name }}</span>,</h2>
-            <p class="mb-3">Welcome to Khwelero where you can take a level up in your academic journey.
-               To login, use the username and password below.
-            </p>
-            <p class="mb-2"><strong>Username:</strong> {{ username }} </p>
-            <p class="mb-4"><strong>Password:</strong> {{ default_password }}</p>
-            <p class="mb-4">Log into your account using the link below:</p>
-            <a href="http://{{ domain_host }}/api/change-default-password/" class="btn btn-primary mb-4">Log In</a>
-            <p>Thank you,</p>
-            <p>Khwelero E-learning Center</p>
+<div class="container mt-5">
+    <div class="card" style="max-width: 600px; margin: auto;">
+        <div class="card-body">
+            <h5 class="card-title">Hi {{ username }},</h5>
+            <p class="card-text">You are receiving this email because you need to verify your email in order to  access your account.</p>
+            <p class="card-text">Kindly enter the OTP on your screen:</p>
+            <div class="alert alert-primary text-center" role="alert" style="font-size: 24px;">
+                <strong>{{ otp_code }}</strong>
+            </div>
+            <p class="card-text">You need to verify that this is your email then you can log into your account </p>
+            <hr>
+            <p class="card-text">Khwelero E-Learning Center</p>
+            <p class="text-muted">Thank you!</p>
         </div>
     </div>
 </div>

@@ -52,6 +52,7 @@ class OneTimePassword(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     otp = models.CharField(max_length=6, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    is_used = models.BooleanField(default=False) 
 
     def is_expired(self):
         # OTP is valid for 1 day
@@ -63,7 +64,7 @@ class OneTimePassword(models.Model):
 
     def regenerate_otp(self):
         # Generate a new OTP if the current one is expired
-        if self.is_expired():
+        if not self.is_used and self.is_expired():
             self.otp = ''.join(random.choices('0123456789', k=6))
             self.created_at = timezone.now()
             self.save(update_fields=['otp', 'created_at'])

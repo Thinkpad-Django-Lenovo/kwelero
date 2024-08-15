@@ -132,7 +132,7 @@ class ChangeDefaultPasswordSerializer(serializers.Serializer):
 
     class Meta:
         fields = ['username', 'password', 'confirm_password']
-            
+
 class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Subject
