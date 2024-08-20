@@ -57,7 +57,8 @@ class Registration(viewsets.ViewSet):
             message = render_to_string('messages/account_creation.html', {
                 'first_name': user_data['first_name'],
                 'last_name': user_data['last_name'],
-                'default_password': user_data.get('default_password'),
+                'username': user_data['username'],
+                'default_password': 'user_password',
                 'domain': current_site.domain,
             })            
             with get_connection(
@@ -196,37 +197,40 @@ class Login(viewsets.ViewSet):
 class PasswordResetRequestView(GenericAPIView):
     serializer_class = serializers.PasswordResetRequestSerializer
     queryset = models.CustomUser.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         username = serializer.data.get('username')
-        user = request.user        
-        username_model = user.username
-        email_model = user.email        
-        if username != username_model:
-            return Response({
-                'Error': 'Usernames do not match, please authenticate first'
-            }, status=status.HTTP_401_UNAUTHORIZED)        
-        if username_model == username:
-            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-            token = PasswordResetTokenGenerator().make_token(user)
-            current_site = get_current_site(request).domain
-            relative_link = reverse('reset-password-confirm', kwargs={'uidb64': uidb64, 'token': token})
-            abslink = f"http://{current_site}{relative_link}"
-            email_body = f"Hi {user.first_name}, use the link below to reset your password: {abslink}"
-            subject = "Reset your Password"
-            recipient_email = email_model            
-            try:
-                email = EmailMessage(subject=subject, body=email_body, from_email=None, to=[recipient_email])
-                email.content_subtype = 'html'
-                email.send(fail_silently=False)                
-                return Response({'message': 'We have sent you a link to reset your password'}, status=status.HTTP_200_OK)
-            except Exception as e:
-                return Response({'error': str(e), 'user': user.username, 'email': recipient_email}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)        
-        return Response({'message': 'User with that username does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            user = models.CustomUser.objects.get(username=username)       
+            username_model = user.username
+            email_model = user.email        
+            if username != username_model:
+                return Response({
+                    'Error': 'Usernames do not match, please authenticate first'
+                }, status=status.HTTP_401_UNAUTHORIZED)        
+            if username_model == username:
+                uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+                token = PasswordResetTokenGenerator().make_token(user)
+                current_site = get_current_site(request).domain
+                relative_link = reverse('reset-password-confirm', kwargs={'uidb64': uidb64, 'token': token})
+                abslink = f"http://{current_site}{relative_link}"
+                email_body = f"Hi {user.first_name}, use the link below to reset your password: {abslink}"
+                subject = "Reset your Password"
+                recipient_email = email_model            
+                try:
+                    email = EmailMessage(subject=subject, body=email_body, from_email=None, to=[recipient_email])
+                    email.content_subtype = 'html'
+                    email.send(fail_silently=False)                
+                    return Response({'message': 'We have sent you a link to reset your password'}, status=status.HTTP_200_OK)
+                except Exception as e:
+                    return Response({'error': str(e), 'user': user.username, 'email': recipient_email}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)        
+            return Response({'message': 'User with that username does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except models.CustomUser.DoesNotExist as e:
+            return Response({'Error': str(e)}, status=status.HTTP_404_NOT_FOUND)
         
 class PasswordResetConfirm(GenericAPIView):
 
